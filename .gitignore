@@ -1,1 +1,10 @@
-tiny-imagenet-200/*
+__pycache__/
+*.py[cod]
+.Python
+venv/
+ENV/
+.venv
+*.pickle
+tiny-imagenet-200/
+.DS_Store
+*.log
