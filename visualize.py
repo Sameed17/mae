@@ -1,13 +1,3 @@
-"""
-MAE visualization: masked input, model reconstruction, and ground truth.
-Run from project root:  python visualize.py
-
-Displays at least 5 qualitative reconstruction examples in a 3-panel grid:
-  • Masked Input (75% patches removed)
-  • Model Reconstruction (visible + predicted masked)
-  • Original Ground Truth
-"""
-
 import torch
 from torch.utils.data import DataLoader, Subset
 import matplotlib.pyplot as plt
@@ -22,13 +12,13 @@ from models import MAE, image_to_patch_pixels, patch_pixels_to_image
 
 def build_masked_image(x, mask_indices, fill=0.5):
     """
-    Replace masked patches with a constant (e.g. gray).
+    replaces masked patches with a constant (e.g. gray).
     x: (B, 3, H, W), mask_indices: (B, num_masked)
     Returns: (B, 3, H, W) with masked patches set to fill.
     """
     B, C, H, W = x.shape
     target_patches = image_to_patch_pixels(x)  # (B, 196, 768)
-    # Replace masked positions with gray patch
+    # replace masked positions with gray patch
     patch_dim = target_patches.shape[-1]
     gray_patch = torch.full((1, 1, patch_dim), fill, device=x.device, dtype=x.dtype)
     gray_patch = gray_patch.expand(B, mask_indices.shape[1], -1)
@@ -85,8 +75,8 @@ def visualize_reconstructions(
     save_path="mae_reconstructions.png",
 ):
     """
-    Run model on batches, collect 4-panel visuals for at least num_examples samples.
-    Uses a fixed mask (same seed) for reproducibility.
+    run model on batches, collect 4-panel visuals for at least num_examples samples.
+    uses a fixed mask (same seed) for reproducibility.
     """
     model.eval()
     B = 1
@@ -165,7 +155,7 @@ def main():
     val_loader = DataLoader(val_set, batch_size=4)
 
     model = MAE().to(device)
-    ckpt = "mae_tiny_imagenet.pt"
+    ckpt = "model.pt"
     try:
         state = torch.load(ckpt, map_location=device, weights_only=True)
         model.load_state_dict(state)

@@ -1,10 +1,3 @@
-"""
-Training script for MAE.
-Run from project root:  python train.py
-
-Uses Tiny ImageNet-200. Set DATA_ROOT below to your dataset path.
-"""
-
 import torch
 from torch.utils.data import DataLoader, Subset
 from tqdm import tqdm
@@ -16,11 +9,7 @@ from models import MAE, mae_loss, image_to_patch_pixels
 def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
-
-    # -------------------------------------------------------------------------
-    # Data: Tiny ImageNet-200 (change path if needed)
-    # -------------------------------------------------------------------------
-    fraction = 0.1  # 1% of train (set to 1.0 for full)
+    fraction = 0.1  # training on 1% of train set
     full_train = TinyImageNet("tiny-imagenet-200", split="train")
     full_val = TinyImageNet("tiny-imagenet-200", split="val")
     n_train = len(full_train)
@@ -31,17 +20,12 @@ def main():
     val_loader = DataLoader(val_set, batch_size=8)
     print(f"Train: {len(train_set)} ({100*fraction:.0f}% of {n_train})  Val: {len(val_set)} ({100*fraction:.0f}% of {n_val})")
 
-    # -------------------------------------------------------------------------
-    # Model and optimizer
-    # -------------------------------------------------------------------------
     model = MAE().to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4, weight_decay=0.05)
-    state = torch.load("mae_tiny_imagenet.pt", map_location=device, weights_only=True)
+    state = torch.load("model.pt", map_location=device, weights_only=True)
     model.load_state_dict(state)
     model = model.to(device)
-    # -------------------------------------------------------------------------
-    # Training loop
-    # -------------------------------------------------------------------------
+
     model.train()
     for epoch in range(1, 20):
         total_loss = 0.0
@@ -79,7 +63,7 @@ def main():
         val_loss = val_loss / val_batches
 
         print(f"Epoch {epoch}  train_loss: {train_loss:.4f}  val_loss: {val_loss:.4f}")
-        torch.save(model.state_dict(), "mae_tiny_imagenet.pt")
+        torch.save(model.state_dict(), "model.pt")
         
     print("Training finished.")
 

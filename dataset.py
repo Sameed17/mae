@@ -1,8 +1,3 @@
-"""
-Tiny ImageNet-200 dataset for MAE training.
-Simple wrapper so students see how images are loaded and resized.
-"""
-
 import numpy as np
 import torch
 from torch.utils.data import Dataset
@@ -20,15 +15,13 @@ class TinyImageNet(Dataset):
       tiny-imagenet-200/val/images/*.JPEG
     """
 
-    def __init__(self, root, split="train", transform=None):
+    def __init__(self, root, split="train"):
         """
         root: path to tiny-imagenet-200 folder
         split: "train" or "val"
-        transform: optional (e.g. resize to 224, normalize); if None we only resize.
         """
         self.root = Path(root)
         self.split = split
-        self.transform = transform
         self.samples = []
 
         if split == "train":
@@ -54,6 +47,4 @@ class TinyImageNet(Dataset):
         img = Image.open(path).convert("RGB")
         img = img.resize((IMAGE_SIZE, IMAGE_SIZE), Image.BILINEAR)
         img = torch.from_numpy(np.array(img)).permute(2, 0, 1).float() / 255.0
-        if self.transform:
-            img = self.transform(img)
         return img
