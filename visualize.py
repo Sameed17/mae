@@ -12,6 +12,8 @@ import torch
 from torch.utils.data import DataLoader, Subset
 import matplotlib.pyplot as plt
 import numpy as np
+from skimage.metrics import peak_signal_noise_ratio as psnr_sk
+from skimage.metrics import structural_similarity as ssim_sk
 
 from config import IMAGE_SIZE, NUM_PATCHES
 from dataset import TinyImageNet
@@ -34,6 +36,22 @@ def build_masked_image(x, mask_indices, fill=0.5):
     target_patches = target_patches.clone()
     target_patches.scatter_(1, mask_exp, gray_patch)
     return patch_pixels_to_image(target_patches)
+
+
+def compute_psnr_ssim(recon, gt, data_range=1.0):
+    """
+    Compute PSNR (dB) and SSIM between reconstruction and ground truth.
+    recon, gt: (C, H, W) tensors in [0, 1].
+    Returns: (psnr_db, ssim_value).
+    """
+    r = np.clip(recon.numpy(), 0.0, 1.0)
+    g = np.clip(gt.numpy(), 0.0, 1.0)
+    # (C, H, W) -> (H, W, C)
+    r = r.transpose(1, 2, 0)
+    g = g.transpose(1, 2, 0)
+    psnr = psnr_sk(g, r, data_range=data_range)
+    ssim = ssim_sk(g, r, data_range=data_range, channel_axis=2)
+    return float(psnr), float(ssim)
 
 
 def build_reconstruction_image(x, pred_masked, visible_indices, mask_indices):
@@ -79,7 +97,7 @@ def visualize_reconstructions(
     visible_indices = ids[:, :num_visible]
     mask_indices = ids[:, num_visible:]
 
-    collected = []  # list of (masked_im, recon_im, full_im, gt_im) per sample
+    collected = []  # list of (masked_im, recon_im, gt_im, psnr, ssim) per sample
 
     with torch.no_grad():
         for batch in dataloader:
@@ -93,10 +111,15 @@ def visualize_reconstructions(
             recon_im = build_reconstruction_image(x, pred_masked, v, m)
 
             for i in range(x.shape[0]):
+                recon_cpu = recon_im[i].cpu()
+                gt_cpu = x[i].cpu()
+                p, s = compute_psnr_ssim(recon_cpu, gt_cpu)
                 collected.append((
                     masked_im[i].cpu(),
-                    recon_im[i].cpu(),
-                    x[i].cpu(),
+                    recon_cpu,
+                    gt_cpu,
+                    p,
+                    s,
                 ))
                 if len(collected) >= num_examples:
                     break
@@ -110,18 +133,25 @@ def visualize_reconstructions(
     titles = ["Masked Input (75% removed)", "Model Reconstruction", "Original Ground Truth"]
     for i in range(3):
         axes[0, i].set_title(titles[i], fontsize=11)
-    for row, (masked, recon, gt) in enumerate(collected):
+    for row, (masked, recon, gt, psnr, ssim) in enumerate(collected):
         for col, img in enumerate([masked, recon, gt]):
             ax = axes[row, col]
             # (C, H, W) -> (H, W, C), clip to [0, 1]
             arr = img.permute(1, 2, 0).numpy()
             arr = np.clip(arr, 0.0, 1.0)
             ax.imshow(arr)
+            if col == 1:
+                ax.text(0.02, 0.98, f"PSNR: {psnr:.2f} dB\nSSIM: {ssim:.4f}",
+                        transform=ax.transAxes, fontsize=9, verticalalignment="top",
+                        bbox=dict(boxstyle="round", facecolor="white", alpha=0.8))
             ax.set_axis_off()
     plt.tight_layout()
     plt.savefig(save_path, dpi=120, bbox_inches="tight")
     plt.close()
+    mean_psnr = np.mean([c[3] for c in collected])
+    mean_ssim = np.mean([c[4] for c in collected])
     print(f"Saved {n} qualitative examples to {save_path}")
+    print(f"Mean PSNR: {mean_psnr:.2f} dB  Mean SSIM: {mean_ssim:.4f}")
 
 
 def main():
